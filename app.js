@@ -1,32 +1,47 @@
-import { CONDITIONS, SCALE, TOTAL_ITEMS, LEVELS, DIVERGENCE, OUTLIER } from "./data.js";
+import { CONTENT, LANGS, TOTAL_ITEMS, LEVELS, DIVERGENCE, OUTLIER } from "./data.js";
+import { LANG, t, setLang } from "./i18n.js";
 import * as store from "./store.js";
 
 const $app = document.getElementById("app");
 const params = new URLSearchParams(location.search);
 const CODE = (params.get("s") || "").toUpperCase();
 const KEY = params.get("k") || "";
+const { conditions: CONDITIONS, scale: SCALE, levels: LEVEL_LABELS } = CONTENT[LANG];
 
 // ---------- utilitare ----------
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const mean = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : NaN);
-const fmt = (n) => (Number.isFinite(n) ? n.toFixed(1).replace(".", ",") : "–");
-const level = (avg) => LEVELS.find((l) => avg >= l.min);
+const num = (n) => String(n).replace(".", t("decimal"));
+const fmt = (n) => (Number.isFinite(n) ? num(n.toFixed(1)) : "–");
+const level = (avg) => { const i = LEVELS.findIndex((l) => avg >= l.min); return { cls: LEVELS[i].cls, label: LEVEL_LABELS[i] }; };
 const ls = {
   get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
 };
 const offsets = CONDITIONS.reduce((acc, c, i) => (acc.push(i ? acc[i - 1] + CONDITIONS[i - 1].items.length : 0), acc), []);
 const baseUrl = () => location.origin + location.pathname;
-const participantUrl = (code) => `${baseUrl()}?s=${code}`;
-const adminUrl = (code, key) => `${baseUrl()}?s=${code}&k=${key}`;
-const fmtDate = (ts) => new Date(ts).toLocaleDateString("ro-RO", { day: "numeric", month: "long", year: "numeric" });
+const participantUrl = (code) => `${baseUrl()}?s=${code}&lang=${LANG}`;
+const adminUrl = (code, key) => `${baseUrl()}?s=${code}&k=${key}&lang=${LANG}`;
+const homeUrl = () => `${baseUrl()}?lang=${LANG}`;
+const fmtDate = (ts) => new Date(ts).toLocaleDateString(t("locale"), { day: "numeric", month: "long", year: "numeric" });
 
 const header = (extra = "") => `
   <header class="topbar no-print">
-    <a class="brand" href="${baseUrl()}"><img src="assets/innersis-logo.png" alt="Innersis" width="94" height="33"></a>
+    <a class="brand" href="${homeUrl()}"><img src="assets/innersis-logo.png" alt="Innersis" width="94" height="33"></a>
     ${extra}
-    ${store.isDemo ? `<span class="demo-pill" title="Firebase nu este configurat. Datele stau doar în acest browser.">Mod demo</span>` : ""}
+    <div class="topbar-end">
+      ${store.isDemo ? `<span class="demo-pill" title="${t("demoTitle")}">${t("demo")}</span>` : ""}
+      <div class="lang" role="group" aria-label="Language">
+        ${LANGS.map((l) => `<button type="button" data-lang="${l}" class="${l === LANG ? "on" : ""}" aria-pressed="${l === LANG}">${l.toUpperCase()}</button>`).join("")}
+      </div>
+    </div>
   </header>`;
+
+// Butoanele de limbă din bara de sus (delegare, pentru că ecranele se redesenează).
+$app.addEventListener("click", (e) => {
+  const b = e.target.closest(".lang button");
+  if (b && b.dataset.lang !== LANG) setLang(b.dataset.lang);
+});
 
 // ======================================================================
 // ACASĂ: sesiune nouă / intrare în sesiune
@@ -37,29 +52,29 @@ function renderHome() {
     ${header()}
     <main class="home">
       <section class="hero">
-        <p class="eyebrow gold">Evaluare de echipă</p>
-        <h1>Cele 5 condiții ale accountability-ului</h1>
-        <p class="lead">Claritate, Capabilitate, Autoritate, Vizibilitate, Consecințe. Fiecare participant evaluează ${TOTAL_ITEMS} afirmații pe o scală de la 1 la 5. Rezultatele arată media fiecărei condiții și unde vă vedeți diferit.</p>
+        <p class="eyebrow gold">${t("homeEyebrow")}</p>
+        <h1>${t("homeTitle")}</h1>
+        <p class="lead">${t("homeLead", TOTAL_ITEMS, CONDITIONS.map((c) => c.title).join(", "))}</p>
       </section>
       <section class="cards">
         <form class="card" id="newForm">
-          <p class="eyebrow">Facilitator</p>
-          <h2>Sesiune nouă</h2>
-          <label>Numele sesiunii / echipei<input name="name" required maxlength="80" placeholder="ex. Echipa de vânzări, octombrie"></label>
-          <label>Câți participanți așteptați?<input name="expected" type="number" min="1" max="200" value="8" required></label>
-          <button class="btn primary" type="submit">Creează sesiunea</button>
+          <p class="eyebrow">${t("facilitator")}</p>
+          <h2>${t("newSession")}</h2>
+          <label>${t("sessionName")}<input name="name" required maxlength="80" placeholder="${t("sessionNamePh")}"></label>
+          <label>${t("expected")}<input name="expected" type="number" min="1" max="200" value="8" required></label>
+          <button class="btn primary" type="submit">${t("create")}</button>
         </form>
         <form class="card" id="joinForm">
-          <p class="eyebrow">Participant</p>
-          <h2>Intră într-o sesiune</h2>
-          <label>Codul sesiunii<input name="code" required maxlength="6" placeholder="ex. K7M2QX" class="code-input" autocomplete="off"></label>
-          <button class="btn" type="submit">Continuă</button>
+          <p class="eyebrow">${t("participant")}</p>
+          <h2>${t("joinTitle")}</h2>
+          <label>${t("sessionCode")}<input name="code" required maxlength="6" placeholder="${t("sessionCodePh")}" class="code-input" autocomplete="off"></label>
+          <button class="btn" type="submit">${t("continue")}</button>
           <p class="hint" id="joinErr"></p>
         </form>
       </section>
       ${mine.length ? `
       <section class="mine">
-        <p class="eyebrow">Sesiunile create în acest browser</p>
+        <p class="eyebrow">${t("mySessions")}</p>
         <ul>${mine.slice().reverse().map((s) => `
           <li><a href="${adminUrl(s.code, s.adminKey)}"><strong>${esc(s.name)}</strong><span>${s.code} · ${fmtDate(s.createdAt)}</span></a></li>`).join("")}
         </ul>
@@ -70,7 +85,7 @@ function renderHome() {
     e.preventDefault();
     const fd = new FormData(e.target);
     const btn = e.target.querySelector("button");
-    btn.disabled = true; btn.textContent = "Se creează…";
+    btn.disabled = true; btn.textContent = t("creating");
     try {
       const name = fd.get("name").trim();
       const expected = Math.max(1, parseInt(fd.get("expected"), 10) || 1);
@@ -79,15 +94,15 @@ function renderHome() {
       location.href = adminUrl(code, adminKey);
     } catch (err) {
       console.error(err);
-      btn.disabled = false; btn.textContent = "Creează sesiunea";
-      alert("Sesiunea nu a putut fi creată. Verifică configurația Firebase.");
+      btn.disabled = false; btn.textContent = t("create");
+      alert(t("createFailed"));
     }
   };
   document.getElementById("joinForm").onsubmit = async (e) => {
     e.preventDefault();
     const code = new FormData(e.target).get("code").trim().toUpperCase();
     if (await store.getSession(code)) location.href = participantUrl(code);
-    else document.getElementById("joinErr").textContent = "Nu există o sesiune cu acest cod.";
+    else document.getElementById("joinErr").textContent = t("noSuchCode");
   };
 }
 
@@ -122,10 +137,10 @@ async function renderParticipant() {
       <main class="center">
         <form class="card narrow" id="nameForm">
           <p class="eyebrow gold">${esc(session.meta.name)}</p>
-          <h1 class="serif">Bun venit</h1>
-          <p>Vei evalua ${TOTAL_ITEMS} afirmații, grupate în cele 5 condiții ale accountability-ului. Gândește-te la echipa ta, așa cum funcționează azi, nu cum ar trebui să funcționeze.</p>
-          <label>Numele tău<input name="name" required maxlength="60" value="${esc(me.name)}" autocomplete="name"></label>
-          <button class="btn primary" type="submit">Începe evaluarea</button>
+          <h1 class="serif">${t("welcome")}</h1>
+          <p>${t("welcomeText", TOTAL_ITEMS)}</p>
+          <label>${t("yourName")}<input name="name" required maxlength="60" value="${esc(me.name)}" autocomplete="name"></label>
+          <button class="btn primary" type="submit">${t("start")}</button>
         </form>
       </main>`;
     document.getElementById("nameForm").onsubmit = async (e) => {
@@ -146,33 +161,33 @@ async function renderParticipant() {
       <main class="slide">
         <aside class="slide-left">
           <div class="orb"></div>
-          <p class="eyebrow gold spaced">Condiția ${ci + 1} din ${CONDITIONS.length}</p>
+          <p class="eyebrow gold spaced">${t("conditionOf", ci + 1, CONDITIONS.length)}</p>
           <h1 class="serif">${c.title}</h1>
           <p class="desc">${c.desc}</p>
           <div class="reflect"><p>${c.question}</p></div>
         </aside>
         <section class="slide-right">
-          <p class="eyebrow teal spaced">Cât de mult este adevărat pentru echipa ta?</p>
+          <p class="eyebrow teal spaced">${t("howTrue")}</p>
           <ol class="items">
-            ${c.items.map((t, ii) => {
+            ${c.items.map((text, ii) => {
               const idx = offsets[ci] + ii;
               return `
               <li class="item">
                 <span class="num">${ii + 1}</span>
                 <div class="item-body">
-                  <p>${t}</p>
-                  <div class="scale" role="radiogroup" aria-label="Afirmația ${ii + 1}">
-                    ${SCALE.map((s) => `<button type="button" role="radio" aria-checked="${me.answers[idx] === s.v}" class="${me.answers[idx] === s.v ? "sel" : ""}" data-idx="${idx}" data-v="${s.v}" title="${s.label}">${s.v}</button>`).join("")}
+                  <p>${text}</p>
+                  <div class="scale" role="radiogroup" aria-label="${t("statement", ii + 1)}">
+                    ${SCALE.map((label, si) => { const v = si + 1; return `<button type="button" role="radio" aria-checked="${me.answers[idx] === v}" class="${me.answers[idx] === v ? "sel" : ""}" data-idx="${idx}" data-v="${v}" title="${label}">${v}</button>`; }).join("")}
                   </div>
-                  <div class="scale-labels"><span>${SCALE[0].label}</span><span>${SCALE[4].label}</span></div>
+                  <div class="scale-labels"><span>${SCALE[0]}</span><span>${SCALE[SCALE.length - 1]}</span></div>
                 </div>
               </li>`;
             }).join("")}
           </ol>
           <div class="nav">
-            <button class="btn ghost" id="back">${ci === 0 ? "Schimbă numele" : "Înapoi"}</button>
+            <button class="btn ghost" id="back">${ci === 0 ? t("changeName") : t("back")}</button>
             <span class="hint" id="navHint"></span>
-            <button class="btn primary" id="next">${ci === CONDITIONS.length - 1 ? "Verifică răspunsurile" : "Următoarea condiție"}</button>
+            <button class="btn primary" id="next">${ci === CONDITIONS.length - 1 ? t("reviewAnswers") : t("nextCondition")}</button>
           </div>
         </section>
       </main>`;
@@ -187,7 +202,7 @@ async function renderParticipant() {
       const missing = c.items.map((_, ii) => offsets[ci] + ii).filter((i) => me.answers[i] == null);
       if (missing.length) {
         $app.querySelectorAll(".item").forEach((el, ii) => el.classList.toggle("missing", me.answers[offsets[ci] + ii] == null));
-        document.getElementById("navHint").textContent = "Alege o notă pentru fiecare afirmație.";
+        document.getElementById("navHint").textContent = t("pickAll");
         return;
       }
       step = ci === CONDITIONS.length - 1 ? "review" : ci + 1;
@@ -200,8 +215,8 @@ async function renderParticipant() {
       ${header()}
       <main class="page">
         <p class="eyebrow gold">${esc(session.meta.name)}</p>
-        <h1 class="serif dark">Verifică și trimite</h1>
-        <p>${esc(me.name)}, acestea sunt răspunsurile tale. Apasă pe o condiție ca să modifici ceva.</p>
+        <h1 class="serif dark">${t("reviewTitle")}</h1>
+        <p>${t("reviewText", esc(me.name))}</p>
         <div class="review">
           ${CONDITIONS.map((c, ci) => `
             <button class="review-row" data-ci="${ci}">
@@ -210,15 +225,15 @@ async function renderParticipant() {
             </button>`).join("")}
         </div>
         <div class="nav">
-          <button class="btn ghost" id="back">Înapoi</button>
+          <button class="btn ghost" id="back">${t("back")}</button>
           <span class="hint" id="navHint"></span>
-          <button class="btn primary" id="submit">Trimite evaluarea</button>
+          <button class="btn primary" id="submit">${t("submit")}</button>
         </div>
       </main>`;
     $app.querySelectorAll(".review-row").forEach((b) => (b.onclick = () => { step = +b.dataset.ci; draw(); }));
     document.getElementById("back").onclick = () => { step = CONDITIONS.length - 1; draw(); };
     document.getElementById("submit").onclick = async (e) => {
-      e.target.disabled = true; e.target.textContent = "Se trimite…";
+      e.target.disabled = true; e.target.textContent = t("submitting");
       try {
         if (!(await store.getSession(CODE))?.participants?.[me.pid]) await store.joinSession(CODE, me.pid, me.name);
         await store.submitAnswers(CODE, me.pid, me.answers);
@@ -226,8 +241,8 @@ async function renderParticipant() {
         step = "done"; draw();
       } catch (err) {
         console.error(err);
-        e.target.disabled = false; e.target.textContent = "Trimite evaluarea";
-        document.getElementById("navHint").textContent = "Nu s-a putut trimite. Verifică conexiunea și încearcă din nou.";
+        e.target.disabled = false; e.target.textContent = t("submit");
+        document.getElementById("navHint").textContent = t("submitFailed");
       }
     };
   }
@@ -238,9 +253,9 @@ async function renderParticipant() {
       <main class="center">
         <div class="card narrow done">
           <div class="check">✓</div>
-          <h1 class="serif">Mulțumim, ${esc(me.name)}!</h1>
-          <p>Răspunsurile tale au fost înregistrate în sesiunea <strong>${esc(session.meta.name)}</strong>. Facilitatorul va prezenta rezultatele echipei.</p>
-          <button class="btn ghost" id="edit">Modifică răspunsurile</button>
+          <h1 class="serif">${t("thanks", esc(me.name))}</h1>
+          <p>${t("thanksText", esc(session.meta.name))}</p>
+          <button class="btn ghost" id="edit">${t("editAnswers")}</button>
         </div>
       </main>`;
     document.getElementById("edit").onclick = () => { me.submitted = false; save(); step = "review"; draw(); };
@@ -250,7 +265,7 @@ async function renderParticipant() {
 }
 
 function renderMissing() {
-  $app.innerHTML = `${header()}<main class="center"><div class="card narrow"><h1 class="serif">Sesiunea nu există</h1><p>Verifică linkul sau codul primit de la facilitator.</p><a class="btn" href="${baseUrl()}">Pagina principală</a></div></main>`;
+  $app.innerHTML = `${header()}<main class="center"><div class="card narrow"><h1 class="serif">${t("missingTitle")}</h1><p>${t("missingText")}</p><a class="btn" href="${homeUrl()}">${t("homePage")}</a></div></main>`;
 }
 
 // ======================================================================
@@ -264,7 +279,7 @@ function renderAdmin() {
   store.watchSession(CODE, (session) => {
     if (!session) return renderMissing();
     if (session.meta.adminKey !== KEY) {
-      $app.innerHTML = `${header()}<main class="center"><div class="card narrow"><h1 class="serif">Acces restricționat</h1><p>Linkul de facilitator nu este valid.</p></div></main>`;
+      $app.innerHTML = `${header()}<main class="center"><div class="card narrow"><h1 class="serif">${t("restricted")}</h1><p>${t("restrictedText")}</p></div></main>`;
       return;
     }
     last = session;
@@ -284,62 +299,62 @@ function renderAdmin() {
 
     $app.innerHTML = `
       ${header(`<nav class="topnav">
-        <a href="#status">Status</a>
+        <a href="#status">${t("navStatus")}</a>
         ${CONDITIONS.map((c) => `<a href="#c-${c.id}">${c.title}</a>`).join("")}
-        <a href="#sumar">Sumar</a>
+        <a href="#sumar">${t("navSummary")}</a>
       </nav>`)}
       <main class="report">
         <section class="print-cover">
           <img class="cover-logo" src="assets/innersis-logo.png" alt="Innersis" width="141" height="50">
-          <p class="eyebrow gold spaced">Evaluare accountability · 5 condiții</p>
+          <p class="eyebrow gold spaced">${t("coverEyebrow")}</p>
           <h1 class="serif">${esc(meta.name)}</h1>
-          <p>${fmtDate(Date.now())} · ${done.length} ${done.length === 1 ? "participant" : "participanți"}${anon ? "" : `: ${people.map((p) => esc(p.name)).join(", ")}`}</p>
+          <p>${fmtDate(Date.now())} · ${t("participantsN", done.length)}${anon ? "" : `: ${people.map((p) => esc(p.name)).join(", ")}`}</p>
         </section>
 
         <section id="status" class="status no-print">
           <div class="status-head">
             <div>
-              <p class="eyebrow gold spaced">Sesiune · cod ${CODE}</p>
+              <p class="eyebrow gold spaced">${t("sessionCodeEyebrow", CODE)}</p>
               <h1 class="serif">${esc(meta.name)}</h1>
-              <p class="muted">Creată pe ${fmtDate(meta.createdAt)}</p>
+              <p class="muted">${t("createdOn", fmtDate(meta.createdAt))}</p>
             </div>
             <div class="status-actions">
-              <label class="toggle"><input type="checkbox" id="anon" ${anon ? "checked" : ""}> Ascunde numele</label>
-              <button class="btn primary" id="pdf" ${done.length ? "" : "disabled"}>Salvează PDF</button>
+              <label class="toggle"><input type="checkbox" id="anon" ${anon ? "checked" : ""}> ${t("hideNames")}</label>
+              <button class="btn primary" id="pdf" ${done.length ? "" : "disabled"}>${t("savePdf")}</button>
             </div>
           </div>
           <div class="status-grid">
             <div class="share">
               <div id="qr" class="qr"></div>
               <div>
-                <p class="eyebrow">Link pentru participanți</p>
-                <div class="linkbox"><input readonly value="${link}" id="plink"><button class="btn" id="copy">Copiază</button></div>
-                <p class="muted small">Sau codul <strong class="code">${CODE}</strong> pe pagina principală. Păstrează linkul acestei pagini: este linkul tău de facilitator.</p>
+                <p class="eyebrow">${t("participantLink")}</p>
+                <div class="linkbox"><input readonly value="${link}" id="plink"><button class="btn" id="copy">${t("copy")}</button></div>
+                <p class="muted small">${t("shareHint", CODE)}</p>
               </div>
             </div>
             <div class="counter">
               <div class="counter-nums">
-                <div><strong>${all.length}</strong><span>înregistrați</span></div>
-                <div><strong>${done.length}</strong><span>au completat</span></div>
-                <div><strong>${meta.expected}</strong><span>așteptați</span></div>
+                <div><strong>${all.length}</strong><span>${t("registered")}</span></div>
+                <div><strong>${done.length}</strong><span>${t("completed")}</span></div>
+                <div><strong>${meta.expected}</strong><span>${t("expectedShort")}</span></div>
               </div>
               <div class="bar"><span style="width:${pct}%"></span></div>
-              <p class="muted small">${done.length >= meta.expected ? "Toți participanții așteptați au completat." : `Mai așteptăm ${meta.expected - done.length}.`} Pagina se actualizează automat.</p>
+              <p class="muted small">${done.length >= meta.expected ? t("allDone") : t("waitingFor", meta.expected - done.length)} ${t("autoUpdate")}</p>
               <ul class="plist">
-                ${all.map((p) => `<li><span class="st ${p.answers ? "ok" : ""}"></span>${esc(p.name)}<em>${p.answers ? "a completat" : "în lucru"}</em><button class="x" data-pid="${p.pid}" title="Elimină din sesiune">×</button></li>`).join("") || `<li class="muted">Încă nu s-a înregistrat nimeni.</li>`}
+                ${all.map((p) => `<li><span class="st ${p.answers ? "ok" : ""}"></span>${esc(p.name)}<em>${p.answers ? t("statusDone") : t("statusInProgress")}</em><button class="x" data-pid="${p.pid}" title="${t("removeTitle")}">×</button></li>`).join("") || `<li class="muted">${t("nobodyYet")}</li>`}
               </ul>
             </div>
           </div>
         </section>
 
-        ${done.length ? CONDITIONS.map((c, ci) => conditionSection(c, ci, people)).join("") + summarySection(people) : `<section class="empty no-print"><p>Rezultatele apar aici imediat ce primul participant trimite evaluarea.</p></section>`}
+        ${done.length ? CONDITIONS.map((c, ci) => conditionSection(c, ci, people)).join("") + summarySection(people) : `<section class="empty no-print"><p>${t("resultsEmpty")}</p></section>`}
       </main>`;
 
     // QR
     if (window.QRCode) new QRCode(document.getElementById("qr"), { text: link, width: 132, height: 132, colorDark: "#1b2f4a", colorLight: "#ffffff" });
     document.getElementById("copy").onclick = async (e) => {
       try { await navigator.clipboard.writeText(link); } catch { document.getElementById("plink").select(); document.execCommand("copy"); }
-      e.target.textContent = "Copiat ✓"; setTimeout(() => (e.target.textContent = "Copiază"), 1500);
+      e.target.textContent = t("copied"); setTimeout(() => (e.target.textContent = t("copy")), 1500);
     };
     document.getElementById("anon").onchange = (e) => { anon = e.target.checked; draw(last); };
     document.getElementById("pdf").onclick = () => {
@@ -350,7 +365,7 @@ function renderAdmin() {
     };
     $app.querySelectorAll(".plist .x").forEach((b) => (b.onclick = () => {
       const p = all.find((x) => x.pid === b.dataset.pid);
-      if (confirm(`Elimini pe ${p.name} din sesiune? Răspunsurile lui/ei vor fi șterse.`)) store.removeParticipant(CODE, p.pid);
+      if (confirm(t("removeConfirm", p.name))) store.removeParticipant(CODE, p.pid);
     }));
   }
 }
@@ -370,7 +385,7 @@ function statsFor(ci, people) {
 }
 
 const divClass = (spread) => (spread >= DIVERGENCE.high ? "div-high" : spread >= DIVERGENCE.medium ? "div-med" : "");
-const divLabel = (spread) => (spread >= DIVERGENCE.high ? "Divergență mare" : spread >= DIVERGENCE.medium ? "Divergență" : "Aliniere");
+const divLabel = (spread) => (spread >= DIVERGENCE.high ? t("divHigh") : spread >= DIVERGENCE.medium ? t("divMed") : t("aligned"));
 
 function conditionSection(c, ci, people) {
   const s = statsFor(ci, people);
@@ -379,13 +394,13 @@ function conditionSection(c, ci, people) {
   <section class="cond page-break" id="c-${c.id}">
     <div class="cond-head">
       <div class="cond-title">
-        <p class="eyebrow gold spaced">Condiția ${ci + 1} din ${CONDITIONS.length}</p>
+        <p class="eyebrow gold spaced">${t("conditionOf", ci + 1, CONDITIONS.length)}</p>
         <h2 class="serif">${c.title}</h2>
         <p class="desc">${c.desc}</p>
       </div>
       <div class="avg-badge ${lv.cls}">
         <strong>${fmt(s.avg)}</strong>
-        <span>media condiției</span>
+        <span>${t("conditionAvg")}</span>
         <em>${lv.label}</em>
       </div>
     </div>
@@ -393,10 +408,10 @@ function conditionSection(c, ci, people) {
       <table class="scores">
         <thead>
           <tr>
-            <th class="stmt">Afirmație</th>
+            <th class="stmt">${t("thStatement")}</th>
             ${people.map((p) => `<th class="person"><span>${esc(p.label)}</span></th>`).join("")}
-            <th class="agg">Media</th>
-            <th class="agg">Dif.</th>
+            <th class="agg">${t("thAvg")}</th>
+            <th class="agg">${t("thDiff")}</th>
           </tr>
         </thead>
         <tbody>
@@ -410,7 +425,7 @@ function conditionSection(c, ci, people) {
         </tbody>
         <tfoot>
           <tr>
-            <td class="stmt">Media persoanei</td>
+            <td class="stmt">${t("personAvg")}</td>
             ${s.personAvg.map((v) => `<td class="sc avg">${fmt(v)}</td>`).join("")}
             <td class="agg strong">${fmt(s.avg)}</td>
             <td class="agg"></td>
@@ -420,9 +435,9 @@ function conditionSection(c, ci, people) {
     </div>
     <div class="legend">
       <span><i class="sw s1"></i>1</span><span><i class="sw s2"></i>2</span><span><i class="sw s3"></i>3</span><span><i class="sw s4"></i>4</span><span><i class="sw s5"></i>5</span>
-      <span><i class="sw outlier-sw"></i>notă departe de medie (±${String(OUTLIER).replace(".", ",")})</span>
-      <span><i class="sw div-med-sw"></i>diferență ≥ ${DIVERGENCE.medium}</span>
-      <span><i class="sw div-high-sw"></i>diferență ≥ ${DIVERGENCE.high}</span>
+      <span><i class="sw outlier-sw"></i>${t("legendOutlier", num(OUTLIER))}</span>
+      <span><i class="sw div-med-sw"></i>${t("legendDiff", DIVERGENCE.medium)}</span>
+      <span><i class="sw div-high-sw"></i>${t("legendDiff", DIVERGENCE.high)}</span>
     </div>
     <div class="keymsg"><i></i><p>${c.key}</p></div>
   </section>`;
@@ -441,15 +456,15 @@ function summarySection(people) {
 
   return `
   <section class="summary page-break" id="sumar">
-    <p class="eyebrow gold spaced">Sumar</p>
-    <h2 class="serif">Imaginea de ansamblu</h2>
+    <p class="eyebrow gold spaced">${t("summary")}</p>
+    <h2 class="serif">${t("summaryTitle")}</h2>
     <div class="sum-top">
       <div class="avg-badge big ${level(overall).cls}">
-        <strong>${fmt(overall)}</strong><span>indicele general</span><em>${level(overall).label}</em>
+        <strong>${fmt(overall)}</strong><span>${t("overallIndex")}</span><em>${level(overall).label}</em>
       </div>
       <div class="sum-text">
-        <p>Pe baza a <strong>${people.length}</strong> ${people.length === 1 ? "evaluare" : "evaluări"}, cea mai puternică condiție este <strong>${strongest.c.title}</strong> (${fmt(strongest.avg)}), iar cea mai fragilă este <strong>${weakest.c.title}</strong> (${fmt(weakest.avg)}).</p>
-        <p>${divergent.length ? `Echipa se vede diferit pe <strong>${divergent.length}</strong> ${divergent.length === 1 ? "afirmație" : "afirmații"} (diferență de cel puțin ${DIVERGENCE.medium} puncte între note). Acolo merită început dialogul.` : "Nu există diferențe mari între participanți: echipa are o imagine comună asupra situației."}</p>
+        <p>${t("summaryStrongest", people.length, strongest.c.title, fmt(strongest.avg), weakest.c.title, fmt(weakest.avg))}</p>
+        <p>${divergent.length ? t("summaryDivergent", divergent.length, DIVERGENCE.medium) : t("summaryAligned")}</p>
       </div>
     </div>
 
@@ -457,35 +472,35 @@ function summarySection(people) {
       ${stats.map((s) => `
         <div class="bar-row">
           <span class="bar-label">${s.ci + 1}. ${s.c.title}</span>
-          <div class="bar-track"><span class="${level(s.avg).cls}" style="width:${(s.avg / 5) * 100}%"></span>${[1, 2, 3, 4].map((t) => `<i style="left:${t * 20}%"></i>`).join("")}</div>
+          <div class="bar-track"><span class="${level(s.avg).cls}" style="width:${(s.avg / 5) * 100}%"></span>${[1, 2, 3, 4].map((x) => `<i style="left:${x * 20}%"></i>`).join("")}</div>
           <strong>${fmt(s.avg)}</strong>
-          <span class="bar-div ${divClass(s.maxSpread)}">${s.maxSpread >= DIVERGENCE.medium ? `dif. max ${s.maxSpread}` : "aliniere"}</span>
+          <span class="bar-div ${divClass(s.maxSpread)}">${s.maxSpread >= DIVERGENCE.medium ? t("maxDiff", s.maxSpread) : t("alignedLower")}</span>
         </div>`).join("")}
     </div>
 
-    <h3>Media fiecărei persoane, pe condiții</h3>
+    <h3>${t("perPerson")}</h3>
     <div class="table-wrap">
       <table class="scores matrix">
-        <thead><tr><th class="stmt">Participant</th>${stats.map((s) => `<th>${s.c.title}</th>`).join("")}<th class="agg">Total</th></tr></thead>
+        <thead><tr><th class="stmt">${t("thParticipant")}</th>${stats.map((s) => `<th>${s.c.title}</th>`).join("")}<th class="agg">${t("thTotal")}</th></tr></thead>
         <tbody>
           ${people.map((p, pi) => {
             const vals = stats.map((s) => s.personAvg[pi]);
             return `<tr><td class="stmt">${esc(p.label)}</td>${vals.map((v) => `<td class="sc s${Math.round(v)}">${fmt(v)}</td>`).join("")}<td class="agg strong">${fmt(mean(vals))}</td></tr>`;
           }).join("")}
         </tbody>
-        <tfoot><tr><td class="stmt">Media echipei</td>${stats.map((s) => `<td class="sc avg">${fmt(s.avg)}</td>`).join("")}<td class="agg strong">${fmt(overall)}</td></tr></tfoot>
+        <tfoot><tr><td class="stmt">${t("teamAvg")}</td>${stats.map((s) => `<td class="sc avg">${fmt(s.avg)}</td>`).join("")}<td class="agg strong">${fmt(overall)}</td></tr></tfoot>
       </table>
     </div>
 
     <div class="sum-lists">
       <div>
-        <h3>Unde vă vedeți cel mai diferit</h3>
-        ${divergent.length ? `<ul class="stmts">${divergent.map((r) => stmtLine(r, `${r.min}–${r.max}`)).join("")}</ul>` : `<p class="muted">Nicio afirmație cu diferență de ${DIVERGENCE.medium}+ puncte.</p>`}
+        <h3>${t("mostDifferent")}</h3>
+        ${divergent.length ? `<ul class="stmts">${divergent.map((r) => stmtLine(r, `${r.min}–${r.max}`)).join("")}</ul>` : `<p class="muted">${t("noDivergent", DIVERGENCE.medium)}</p>`}
       </div>
       <div>
-        <h3>Cele mai scăzute afirmații</h3>
+        <h3>${t("lowest")}</h3>
         <ul class="stmts">${lowest.map((r) => stmtLine(r, fmt(r.mean))).join("")}</ul>
-        <h3>Cele mai puternice afirmații</h3>
+        <h3>${t("highest")}</h3>
         <ul class="stmts">${highest.map((r) => stmtLine(r, fmt(r.mean))).join("")}</ul>
       </div>
     </div>

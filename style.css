@@ -32,15 +32,20 @@ p { margin: 0 0 .8em; }
 .topbar { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 20px; padding: 12px 24px; background: var(--navy); color: #fff; }
 .brand { display: flex; align-items: center; }
 .brand img { display: block; height: 33px; width: auto; }
-.demo-pill { flex: none; white-space: nowrap; margin-left: auto; background: var(--gold); color: var(--navy); font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 99px; }
-.topnav { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+.demo-pill { flex: none; white-space: nowrap; background: var(--gold); color: var(--navy); font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 99px; }
+.topnav { min-width: 0; display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
 .topnav a { color: #c8d3e2; text-decoration: none; font-size: 14px; padding: 6px 10px; border-radius: 6px; white-space: nowrap; }
 .topnav a:hover { background: var(--navy-2); color: #fff; }
-.steps { display: flex; gap: 6px; margin-left: auto; }
+.steps { display: flex; gap: 6px; margin: 0 auto; }
 .steps span { width: 28px; height: 4px; border-radius: 2px; background: #2c4466; }
 .steps span.past { background: var(--teal); }
 .steps span.on { background: var(--gold); }
-.steps + .demo-pill { margin-left: 12px; }
+.topbar-end { display: flex; align-items: center; gap: 12px; margin-left: auto; flex: none; }
+.steps + .topbar-end { margin-left: 0; }
+.lang { display: flex; border: 1px solid #3a5272; border-radius: 6px; overflow: hidden; }
+.lang button { font: inherit; font-size: 12px; font-weight: 700; letter-spacing: .06em; background: transparent; color: #a9b6c8; border: 0; padding: 4px 9px; cursor: pointer; }
+.lang button:hover { color: #fff; }
+.lang button.on { background: var(--teal); color: #fff; cursor: default; }
 
 /* ---------- buttons & forms ---------- */
 .btn { font: inherit; font-weight: 600; font-size: 15px; border: 1.5px solid var(--navy); background: #fff; color: var(--navy); padding: 11px 20px; border-radius: 8px; cursor: pointer; text-decoration: none; display: inline-block; }

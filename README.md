@@ -17,6 +17,8 @@ Evaluare online de echipă pe cele 5 condiții ale accountability-ului (Claritat
 6. **Salvează PDF** deschide dialogul de tipărire (A4 landscape), unde alegi „Save as PDF”.
 7. **Ascunde numele** înlocuiește numele cu P1, P2… pentru proiectare sau pentru PDF.
 
+**Limba:** butoanele RO / EN din bara de sus schimbă limba. Linkul și codul QR pentru participanți păstrează limba aleasă de facilitator.
+
 Sesiunile create dintr-un browser apar pe pagina principală, la „Sesiunile create în acest browser”.
 
 ## Configurare Firebase (obligatoriu pentru folosire reală)
@@ -43,7 +45,8 @@ Cheile din `config.js` nu sunt secrete: așa funcționează Firebase pe web. Acc
 |---|---|
 | `index.html` | Pagina aplicației |
 | `app.js` | Ecranele: pagina principală, participant, facilitator, rezultate, sumar |
-| `data.js` | Afirmațiile, scala și pragurile pentru evidențieri. Aici se editează textele. |
+| `data.js` | Afirmațiile și scala, în română și engleză, plus pragurile pentru evidențieri. Aici se editează textele. |
+| `i18n.js` | Textele interfeței (butoane, mesaje, rezultate) în română și engleză |
 | `store.js` | Salvarea datelor: Firebase sau localStorage (mod demo) |
 | `config.js` | Configurația Firebase |
 | `style.css` | Stilurile, inclusiv cele pentru PDF |
